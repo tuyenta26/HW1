@@ -75,7 +75,18 @@ jobs:
     steps:
       - name: Deploy to Local Mac Server
         run: |
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/age-prediction-api:latest
-          docker stop age-api || true
-          docker rm age-api || true
-          docker run -d --name age-api -p 8000:8000 ${{ secrets.DOCKERHUB_USERNAME }}/age-prediction-api:latest
+          # 1. Chỉ định đường dẫn Docker phổ biến trên Mac
+          DOCKER_PATH="/usr/local/bin/docker"
+          
+          # 2. Đăng nhập Docker Hub
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | $DOCKER_PATH login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          
+          # 3. Kéo Image mới
+          $DOCKER_PATH pull ${{ secrets.DOCKERHUB_USERNAME }}/age-prediction-api:latest
+          
+          # 4. Dừng và xóa Container cũ (nếu có)
+          $DOCKER_PATH stop age-api || true
+          $DOCKER_PATH rm age-api || true
+          
+          # 5. Chạy Container mới
+          $DOCKER_PATH run -d --name age-api -p 8000:8000 ${{ secrets.DOCKERHUB_USERNAME }}/age-prediction-api:latest
