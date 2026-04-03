@@ -1,0 +1,43 @@
+# Use Python 3.10 slim image for a smaller footprint
+FROM python:3.10-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HF_HOME=/app/models
+
+# Set the working directory
+WORKDIR /app
+
+# Install system dependencies necessary for some Python packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy only requirements first to leverage Docker cache
+COPY requirements.txt .
+
+# Install Python dependencies
+# Use --no-cache-dir to keep the image small
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Pre-download the Hugging Face model at build time
+# This prevents downloading it during container startup, speeding up boot time
+RUN python -c "from transformers import ViTImageProcessor, ViTForImageClassification; \
+    model_name='nateraw/vit-age-classifier'; \
+    ViTImageProcessor.from_pretrained(model_name); \
+    ViTForImageClassification.from_pretrained(model_name)"
+
+# Copy the rest of the application code
+COPY ./app /app/app
+
+# Create a non-root user for security best practices
+RUN useradd -m appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+# Expose the API port
+EXPOSE 8000
+
+# Start the application using Uvicorn
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
