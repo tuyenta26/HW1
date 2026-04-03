@@ -35,3 +35,47 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/age-prediction-api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Self-Hosted Runner
+    needs: build-and-push
+    if: github.event_name != 'pull_request'
+    # Use the self-hosted label
+    runs-on: self-hosted
+
+    steps:
+      - name: Log in to Docker Hub
+        # Logging in on the self-hosted runner might be necessary if your Hub repo is private
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Pull the latest image
+        # Using :latest since we tagged the previous step with :latest
+        run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/age-prediction-api:latest
+
+      - name: Stop and remove existing container
+        # Run '|| true' silently ignores if container is not running or doesn't exist
+        run: |
+          docker stop age-prediction-api || true
+          docker rm age-prediction-api || true
+
+      - name: Run new container
+        run: |
+          docker run -d \
+            --name age-prediction-api \
+            -p 8000:8000 \
+            --restart unless-stopped \
+            ${{ secrets.DOCKERHUB_USERNAME }}/age-prediction-api:latest
+
+deploy-local:
+    needs: build-and-push
+    runs-on: self-hosted
+    steps:
+      - name: Deploy to Local Mac Server
+        run: |
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/age-prediction-api:latest
+          docker stop age-api || true
+          docker rm age-api || true
+          docker run -d --name age-api -p 8000:8000 ${{ secrets.DOCKERHUB_USERNAME }}/age-prediction-api:latest
