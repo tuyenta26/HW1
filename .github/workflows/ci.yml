@@ -69,7 +69,7 @@ jobs:
             --restart unless-stopped \
             ${{ secrets.DOCKERHUB_USERNAME }}/age-prediction-api:latest
 
-deploy-local:
+  deploy-local:
     needs: build-and-push
     runs-on: self-hosted
     steps:
